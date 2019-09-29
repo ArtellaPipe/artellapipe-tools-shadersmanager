@@ -24,15 +24,15 @@ from artellapipe.gui import window
 
 class ShadersManager(window.ArtellaWindow, object):
 
-    LOGO_NAME = 'shadermanager_logo'
+    LOGO_NAME = 'shadersmanager_logo'
 
     ASSETS_VIEWER_CLASS = assetsviewer.CategorizedAssetViewer
 
     def __init__(self, project):
         super(ShadersManager, self).__init__(
             project=project,
-            name='ArtellaAlembicManager',
-            title='Shader Manager',
+            name='ArtellaShadersManager',
+            title='Shaders Manager',
             size=(1400, 800)
         )
 
