@@ -19,11 +19,10 @@ from tpPyUtils import osplatform
 import tpDccLib as tp
 
 import artellapipe
-from artellapipe.core import tool
 from artellapipe.widgets import shadersviewer
 
 
-class ShadersManager(tool.Tool, object):
+class ShadersManager(artellapipe.Tool, object):
 
     def __init__(self, project, config):
         super(ShadersManager, self).__init__(project=project, config=config)
