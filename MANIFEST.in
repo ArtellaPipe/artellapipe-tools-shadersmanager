@@ -1,1 +1,2 @@
-include source/artellapipe/tools/resources/images/*.*
+include artellapipe/tools/shadersmanager/__logging__.ini
+include artellapipe/tools/shadersmanager/resources/images/*.*

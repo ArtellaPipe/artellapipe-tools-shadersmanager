@@ -14,7 +14,7 @@ __email__ = "tpovedatd@gmail.com"
 
 import os
 import traceback
-import logging.config
+import logging
 from functools import partial
 
 from Qt.QtCore import *
@@ -23,15 +23,13 @@ from Qt.QtGui import *
 
 import tpDccLib as tp
 
-import artellapipe.tools.shadersmanager
-from artellapipe.utils import exceptions, shader as shader_utils
+import artellapipe
+from artellapipe.utils import exceptions, resource, shader as shader_utils
 
 if tp.is_maya():
     from tpMayaLib.core import shader as maya_shader
 
-logging.config.fileConfig(artellapipe.tools.shadersmanager.get_logging_config(), disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-logger.setLevel(artellapipe.tools.shadersmanager.get_logging_level())
+LOGGER = logging.getLogger()
 
 
 class ArtellaShaderExportSplash(QSplashScreen, object):
@@ -96,32 +94,12 @@ class ArtellaShaderExporterWidget(QWidget, object):
 
     def export(self, publish=False):
 
+        exported_shader = None
         if self.do_export.isChecked():
-            shader_library_path = self._project.get_shaders_path()
-            if not os.path.exists(shader_library_path):
-                logger.debug('Shader Library {0} not found! Aborting shader export! Contact TD!'.format(shader_library_path))
-                return
+            exported_shader = artellapipe.ShadersMgr().export_shader(
+                shader_name=self._name, shader_swatch=self._shader_swatch, publish=publish)
 
-            if not tp.Dcc.object_exists(self._name):
-                logger.debug('Shader {0} does not exists in the scene! Aborting shader export!'.format(self._name))
-                return
-
-            px = QPixmap(QSize(100, 100))
-            self._shader_swatch.render(px)
-            temp_file = os.path.join(shader_library_path, 'tmp.png')
-            px.save(temp_file)
-            try:
-                network = shader_utils.ShadingNetwork.write_network(shaders_path=shader_library_path, shaders=[self._name], icon_path=temp_file, publish=publish)
-                exported_shaders = network
-            except Exception as e:
-                logger.debug('Aborting shader export: {0}'.format(str(e)))
-                os.remove(temp_file)
-                return
-            os.remove(temp_file)
-
-            return exported_shaders
-        else:
-            return None
+        return exported_shader
 
     @property
     def name(self):
@@ -149,7 +127,7 @@ class ShaderExporter(QDialog, object):
         self.main_layout.setSpacing(0)
         self.setLayout(self.main_layout)
 
-        splash_pixmap = self._project.resource.pixmap(self.SPLASH_FILE_NAME)
+        splash_pixmap = resource.ResourceManager().pixmap(self.SPLASH_FILE_NAME)
         splash = ArtellaShaderExportSplash(splash_pixmap)
         self._splash_layout = QVBoxLayout()
         self._splash_layout.setAlignment(Qt.AlignBottom)
@@ -211,7 +189,7 @@ class ShaderExporter(QDialog, object):
         exported_shaders = list()
 
         if self._shaders_list.count() <= 0:
-            logger.error('No Shaders To Export. Aborting ....')
+            LOGGER.error('No Shaders To Export. Aborting ....')
             return exported_shaders
 
         try:
@@ -227,11 +205,11 @@ class ShaderExporter(QDialog, object):
                     else:
                         exported_shaders.append(exported_shader)
                 else:
-                    logger.error('Error while exporting shader: {}'.format(shader.name))
+                    LOGGER.error('Error while exporting shader: {}'.format(shader.name))
         except Exception as e:
             exceptions.capture_sentry_exception(e)
-            logger.error(str(e))
-            logger.error(traceback.format_exc())
+            LOGGER.error(str(e))
+            LOGGER.error(traceback.format_exc())
 
         return exported_shaders
 
@@ -243,5 +221,5 @@ class ShaderExporter(QDialog, object):
         self.repaint()
         self.export_shaders(publish=publish)
         self.exportFinished.emit()
-        logger.debug('Shaders exported successfully!')
+        LOGGER.debug('Shaders exported successfully!')
         self.close()

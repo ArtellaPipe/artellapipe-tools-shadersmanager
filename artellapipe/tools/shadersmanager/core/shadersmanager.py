@@ -18,23 +18,15 @@ from tpPyUtils import osplatform
 
 import tpDccLib as tp
 
-from artellapipe.core import assetsviewer, shadersviewer
-from artellapipe.gui import window
+import artellapipe
+from artellapipe.core import tool
+from artellapipe.widgets import shadersviewer
 
 
-class ShadersManager(window.ArtellaWindow, object):
+class ShadersManager(tool.Tool, object):
 
-    LOGO_NAME = 'shadersmanager_logo'
-
-    ASSETS_VIEWER_CLASS = assetsviewer.CategorizedAssetViewer
-
-    def __init__(self, project):
-        super(ShadersManager, self).__init__(
-            project=project,
-            name='ArtellaShadersManager',
-            title='Shaders Manager',
-            size=(1400, 800)
-        )
+    def __init__(self, project, config):
+        super(ShadersManager, self).__init__(project=project, config=config)
 
         self._init()
 
@@ -86,20 +78,20 @@ class ShadersManager(window.ArtellaWindow, object):
         shader_scroll = QScrollArea()
         shader_scroll.setWidgetResizable(True)
         shader_scroll.setWidget(shader_widget)
-        self.shader_viewer = shadersviewer.ShaderViewer(project=self._project, grid_size=6)
+        self.shader_viewer = shadersviewer.ShadersViewer(project=self._project, grid_size=6)
         # shader_scroll.setMinimumWidth(900)
         self.shader_viewer.setAlignment(Qt.AlignTop)
         shader_widget.setLayout(self.shader_viewer)
 
-        self._assets_viewer = self.ASSETS_VIEWER_CLASS(
-            project=self._project,
-            column_count=2,
-            parent=self
-        )
-        self._assets_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # self._assets_viewer = self.ASSETS_VIEWER_CLASS(
+        #     project=self._project,
+        #     column_count=2,
+        #     parent=self
+        # )
+        # self._assets_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # self._asset_viewer.setMinimumWidth(420)
-        shader_splitter.addWidget(self._assets_viewer)
+        # shader_splitter.addWidget(self._assets_viewer)
         shader_splitter.addWidget(shader_scroll)
 
     def setup_signals(self):
@@ -145,26 +137,14 @@ class ShadersManager(window.ArtellaWindow, object):
         Internal callback function that is called when the user clicks Sync Shaders button
         """
 
-        if not self._project:
-            return
-
-        self._project.update_shaders()
+        artellapipe.ShadersMgr().update_shaders()
 
     def _open_shaders_path(self):
         """
        Internal callback function that is called when the user clicks on Open Shaders Path button
        """
 
-        if not self._project:
-            return
+        shaders_paths = artellapipe.ShadersMgr().get_shaders_paths() or list()
 
-        osplatform.open_folder(self._project.get_shaders_path())
-
-
-def run(project):
-    win = ShadersManager(project=project)
-    win.show()
-
-    return win
-
-
+        for shader_path in shaders_paths:
+            osplatform.open_folder(shader_path)

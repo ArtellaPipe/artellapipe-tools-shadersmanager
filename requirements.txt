@@ -2,4 +2,4 @@
 # artellapipe-tools-shadersmanager requirements file
 # ===================================================================
 
-artellapipe-core
+artellapipe
