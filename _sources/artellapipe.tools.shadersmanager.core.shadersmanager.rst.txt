@@ -1,0 +1,7 @@
+artellapipe.tools.shadersmanager.core.shadersmanager module
+===========================================================
+
+.. automodule:: artellapipe.tools.shadersmanager.core.shadersmanager
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -1,0 +1,18 @@
+artellapipe.tools.shadersmanager package
+========================================
+
+Subpackages
+-----------
+
+.. toctree::
+
+   artellapipe.tools.shadersmanager.core
+   artellapipe.tools.shadersmanager.widgets
+
+Module contents
+---------------
+
+.. automodule:: artellapipe.tools.shadersmanager
+   :members:
+   :undoc-members:
+   :show-inheritance:

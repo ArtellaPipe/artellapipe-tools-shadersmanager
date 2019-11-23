@@ -1,0 +1,17 @@
+artellapipe.tools.shadersmanager.widgets package
+================================================
+
+Submodules
+----------
+
+.. toctree::
+
+   artellapipe.tools.shadersmanager.widgets.shaderexporter
+
+Module contents
+---------------
+
+.. automodule:: artellapipe.tools.shadersmanager.widgets
+   :members:
+   :undoc-members:
+   :show-inheritance:
