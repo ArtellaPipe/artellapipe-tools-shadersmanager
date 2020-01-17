@@ -12,18 +12,19 @@ __license__ = "MIT"
 __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
-import os
 import traceback
 import logging
 from functools import partial
 
 from Qt.QtCore import *
 from Qt.QtWidgets import *
-from Qt.QtGui import *
 
+import tpQtLib
 import tpDccLib as tp
+from tpQtLib.core import base
 
 import artellapipe
+from artellapipe.core import defines
 from artellapipe.utils import exceptions, resource, shader as shader_utils
 
 if tp.is_maya():
@@ -43,26 +44,32 @@ class ArtellaShaderExportSplash(QSplashScreen, object):
         pass
 
 
-class ArtellaShaderExporterWidget(QWidget, object):
-    def __init__(self, shader_name, layout='horizontal', parent=None):
+class ArtellaShaderExporterWidget(base.BaseWidget, object):
+    def __init__(self, shader_name, layout='horizontal', asset=None, parent=None):
+        self._layout = layout
+        self._name = shader_name
+        self._asset = asset
         super(ArtellaShaderExporterWidget, self).__init__(parent=parent)
 
-        self._name = shader_name
-
-        if layout == 'horizontal':
+    def get_main_layout(self):
+        if self._layout == 'horizontal':
             main_layout = QHBoxLayout()
         else:
             main_layout = QVBoxLayout()
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(5)
         main_layout.setAlignment(Qt.AlignLeft)
-        self.setLayout(main_layout)
 
-        if tp.Dcc.object_exists(shader_name):
+        return main_layout
+
+    def ui(self):
+        super(ArtellaShaderExporterWidget, self).ui()
+
+        if tp.Dcc.object_exists(self._name):
             self._shader_swatch = maya_shader.get_shader_swatch(self._name)
-            main_layout.addWidget(self._shader_swatch)
+            self.main_layout.addWidget(self._shader_swatch)
 
-            if layout == 'horizontal':
+            if self._layout == 'horizontal':
                 v_div_w = QWidget()
                 v_div_l = QVBoxLayout()
                 v_div_l.setAlignment(Qt.AlignLeft)
@@ -74,12 +81,12 @@ class ArtellaShaderExporterWidget(QWidget, object):
                 v_div.setFrameShape(QFrame.VLine)
                 v_div.setFrameShadow(QFrame.Sunken)
                 v_div_l.addWidget(v_div)
-                main_layout.addWidget(v_div_w)
+                self.main_layout.addWidget(v_div_w)
 
-        shader_lbl = QLabel(shader_name)
-        main_layout.addWidget(shader_lbl)
-        if layout == 'vertical':
-            main_layout.setAlignment(Qt.AlignCenter)
+        shader_lbl = QLabel(self._name)
+        self.main_layout.addWidget(shader_lbl)
+        if self._layout == 'vertical':
+            self.main_layout.setAlignment(Qt.AlignCenter)
             shader_lbl.setAlignment(Qt.AlignCenter)
             shader_lbl.setStyleSheet('QLabel {background-color: rgba(50, 50, 50, 200); border-radius:5px;}')
             shader_lbl.setStatusTip(self.name)
@@ -90,14 +97,20 @@ class ArtellaShaderExporterWidget(QWidget, object):
         self.do_export = QCheckBox()
         self.do_export.setChecked(True)
         do_export_layout.addWidget(self.do_export)
-        main_layout.addLayout(do_export_layout)
+        self.main_layout.addLayout(do_export_layout)
 
-    def export(self, publish=False):
+    def export(self, new_version=False, publish=False, comment=None):
 
         exported_shader = None
         if self.do_export.isChecked():
-            exported_shader = artellapipe.ShadersMgr().export_shader(
-                shader_name=self._name, shader_swatch=self._shader_swatch, publish=publish)
+            if self._asset:
+                exported_shader = artellapipe.ShadersMgr().export_asset_shaders(
+                    asset=self._asset, publish=publish, shader_swatch=self._shader_swatch,
+                    new_version=new_version, comment=comment, shaders_to_export=[self._name])
+            else:
+                exported_shader = artellapipe.ShadersMgr().export_shader(
+                    shader_name=self._name, shader_swatch=self._shader_swatch, publish=publish,
+                    new_version=new_version, comment=comment)
 
         return exported_shader
 
@@ -106,56 +119,83 @@ class ArtellaShaderExporterWidget(QWidget, object):
         return self._name
 
 
-class ShaderExporter(QDialog, object):
+class ShadersDialog(tpQtLib.Dialog, object):
+    def __init__(self, project, shaders, parent=None):
+        self._project = project
+        self._shaders = shaders
+        super(ShadersDialog, self).__init__(parent=parent)
 
-    SPLASH_FILE_NAME = 'shaders_splash'
+    def ui(self):
+        super(ShadersDialog, self).ui()
+
+        self._shaders_exporter = ShaderExporter(project=self._project, shaders=self._shaders)
+        self.main_layout.addWidget(self._shaders_exporter)
+
+
+class ShaderExporter(base.BaseWidget, object):
 
     exportFinished = Signal()
+    exportCanceled = Signal()
 
-    def __init__(self, project, shaders, parent=None):
-
+    def __init__(self, project, shaders=None, asset=None, parent=None):
+        self._shaders = shaders or list()
+        self._asset = asset
         self._project = project
 
         super(ShaderExporter, self).__init__(parent=parent)
 
-        self.setWindowTitle('Shader Exporter')
+        self.refresh()
 
-        self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-
-        self.main_layout = QVBoxLayout()
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
-        self.setLayout(self.main_layout)
-
-        splash_pixmap = resource.ResourceManager().pixmap(self.SPLASH_FILE_NAME)
-        splash = ArtellaShaderExportSplash(splash_pixmap)
-        self._splash_layout = QVBoxLayout()
-        self._splash_layout.setAlignment(Qt.AlignBottom)
-        splash.setLayout(self._splash_layout)
-        self.main_layout.addWidget(splash)
+    def ui(self):
+        super(ShaderExporter, self).ui()
 
         shaders_layout = QVBoxLayout()
         shaders_layout.setAlignment(Qt.AlignBottom)
-        self._splash_layout.addLayout(shaders_layout)
+        self.main_layout.addLayout(shaders_layout)
         self._shaders_list = QListWidget()
-        self._shaders_list.setMaximumHeight(170)
         self._shaders_list.setFlow(QListWidget.LeftToRight)
         self._shaders_list.setSelectionMode(QListWidget.NoSelection)
         self._shaders_list.setStyleSheet('background-color: rgba(50, 50, 50, 150);')
         shaders_layout.addWidget(self._shaders_list)
 
+        refresh_icon = resource.ResourceManager().icon('refresh')
+        export_icon = resource.ResourceManager().icon('export')
+        publish_icon = resource.ResourceManager().icon('box')
+        cancel_icon = resource.ResourceManager().icon('delete')
+
+        self.export_shader_mapper_cbx = QCheckBox('Export Shaders Mapping File?')
+        self.export_shader_mapper_cbx.setChecked(True)
+        self.upload_new_version_cbx = QCheckBox('Upload New Version?')
+        self._comment_lbl = QLabel('Comment:')
+        self._comment_line = QLineEdit()
+        self.refresh_btn = QPushButton()
+        self.refresh_btn.setIcon(refresh_icon)
+        self.refresh_btn.setMaximumWidth(40)
         self.export_btn = QPushButton('Export')
+        self.export_btn.setIcon(export_icon)
         self.publish_btn = QPushButton('Export and Publish')
+        self.publish_btn.setEnabled(False)
+        self.publish_btn.setIcon(publish_icon)
         self.cancel_btn = QPushButton('Cancel')
+        self.cancel_btn.setMaximumWidth(80)
+        self.cancel_btn.setIcon(cancel_icon)
         buttons_layout = QHBoxLayout()
+        buttons_layout.addWidget(self.refresh_btn)
         buttons_layout.addWidget(self.export_btn)
         buttons_layout.addWidget(self.publish_btn)
         buttons_layout.addWidget(self.cancel_btn)
         buttons_layout.setAlignment(Qt.AlignBottom)
-        self._splash_layout.addLayout(buttons_layout)
+        checkboxes_layout = QHBoxLayout()
+        checkboxes_layout.addWidget(self.export_shader_mapper_cbx)
+        checkboxes_layout.addWidget(self.upload_new_version_cbx)
+        checkboxes_layout.addItem(QSpacerItem(10, 0, QSizePolicy.Fixed, QSizePolicy.Preferred))
+        checkboxes_layout.addWidget(self._comment_lbl)
+        checkboxes_layout.addWidget(self._comment_line)
+        self.main_layout.addLayout(checkboxes_layout)
+        self.main_layout.addLayout(buttons_layout)
 
         progress_layout = QHBoxLayout()
-        self._splash_layout.addLayout(progress_layout)
+        self.main_layout.addLayout(progress_layout)
 
         self._progress_text = QLabel('Exporting and uploading shaders to Artella ... Please wait!')
         self._progress_text.setAlignment(Qt.AlignCenter)
@@ -167,24 +207,40 @@ class ShaderExporter(QDialog, object):
 
         progress_layout.addWidget(self._progress_text)
 
-        for shader in shaders:
+    def setup_signals(self):
+        self.export_btn.clicked.connect(partial(self._on_export_shaders, False))
+        self.publish_btn.clicked.connect(partial(self._on_export_shaders, True))
+        self.cancel_btn.clicked.connect(self.exportCanceled.emit)
+        self.refresh_btn.clicked.connect(self.refresh)
+
+    def set_asset(self, asset):
+        self._asset = asset
+        asset_shaders = artellapipe.ShadersMgr().get_asset_shaders_to_export(self._asset) or list()
+        self._shaders = asset_shaders
+        self.refresh()
+
+    def set_shaders(self, shaders):
+        self._shaders = shaders
+        self.refresh()
+
+    def refresh(self):
+
+        self._open_asset_shaders_file()
+
+        self._shaders_list.clear()
+
+        for shader in self._shaders:
             if shader in shader_utils.IGNORE_SHADERS:
                 continue
             shader_item = QListWidgetItem()
-            shader_widget = ArtellaShaderExporterWidget(shader_name=shader, layout='vertical')
+            shader_widget = ArtellaShaderExporterWidget(shader_name=shader, layout='vertical', asset=self._asset)
             shader_item.setSizeHint(QSize(120, 120))
             shader_widget.setMinimumWidth(100)
             shader_widget.setMinimumHeight(100)
             self._shaders_list.addItem(shader_item)
             self._shaders_list.setItemWidget(shader_item, shader_widget)
 
-        self.export_btn.clicked.connect(partial(self._on_export_shaders, False))
-        self.publish_btn.clicked.connect(partial(self._on_export_shaders, True))
-        self.cancel_btn.clicked.connect(self.close)
-
-        self.setFixedSize(splash_pixmap.size())
-
-    def export_shaders(self, publish=False):
+    def export_shaders(self, new_version=False, publish=False, comment=None):
 
         exported_shaders = list()
 
@@ -198,28 +254,60 @@ class ShaderExporter(QDialog, object):
                 shader = self._shaders_list.itemWidget(shader_item)
                 self._progress_text.setText('Exporting shader: {0} ... Please wait!'.format(shader.name))
                 self.repaint()
-                exported_shader = shader.export(publish=publish)
+                exported_shader = shader.export(new_version=new_version, publish=publish, comment=comment)
                 if exported_shader is not None:
                     if type(exported_shader) == list:
                         exported_shaders.extend(exported_shader)
                     else:
                         exported_shaders.append(exported_shader)
-                else:
-                    LOGGER.error('Error while exporting shader: {}'.format(shader.name))
+                # else:
+                #     LOGGER.error('Error while exporting shader: {}'.format(shader.name))
         except Exception as e:
             exceptions.capture_sentry_exception(e)
             LOGGER.error(str(e))
             LOGGER.error(traceback.format_exc())
+            return exported_shaders
+
+        if self._asset and self.export_shader_mapper_cbx.isChecked():
+            self._progress_text.setText('Exporting Shaders Mapping File ... Please wait!')
+            self.repaint()
+            artellapipe.ShadersMgr().export_asset_shaders_mapping(
+                self._asset, publish=publish, comment=comment, new_version=new_version)
 
         return exported_shaders
 
+    def _open_asset_shaders_file(self):
+        if not self._asset:
+            return
+
+        shading_file_type = artellapipe.AssetsMgr().get_shading_file_type()
+        file_path = self._asset.get_file(
+            file_type=shading_file_type, status=defines.ArtellaFileStatus.WORKING, fix_path=True)
+        valid_open = self._asset.open_file(file_type=shading_file_type, status=defines.ArtellaFileStatus.WORKING)
+        if not valid_open:
+            LOGGER.warning('Impossible to open Asset Shading File: {}'.format(file_path))
+            return None
+
+    def _set_widgets_visibility(self, flag):
+        self.cancel_btn.setVisible(flag)
+        self.export_btn.setVisible(flag)
+        self.publish_btn.setVisible(flag)
+        self.refresh_btn.setVisible(flag)
+        self.export_shader_mapper_cbx.setVisible(flag)
+        self.upload_new_version_cbx.setVisible(flag)
+        self._comment_lbl.setVisible(flag)
+        self._comment_line.setVisible(flag)
+        self._progress_text.setVisible(not flag)
+
     def _on_export_shaders(self, publish=False):
-        self.cancel_btn.setVisible(False)
-        self.export_btn.setVisible(False)
-        self.publish_btn.setVisible(False)
-        self._progress_text.setVisible(True)
+
+        self._set_widgets_visibility(False)
         self.repaint()
-        self.export_shaders(publish=publish)
-        self.exportFinished.emit()
-        LOGGER.debug('Shaders exported successfully!')
-        self.close()
+        try:
+            self.export_shaders(
+                publish=publish, new_version=self.upload_new_version_cbx.isChecked(),
+                comment=self._comment_line.text())
+            self.exportFinished.emit()
+            LOGGER.info('Shaders exported successfully!')
+        finally:
+            self._set_widgets_visibility(True)
