@@ -1,0 +1,7 @@
+artellapipe.tools.shadersmanager.widgets.assetsviewer module
+============================================================
+
+.. automodule:: artellapipe.tools.shadersmanager.widgets.assetsviewer
+   :members:
+   :undoc-members:
+   :show-inheritance:

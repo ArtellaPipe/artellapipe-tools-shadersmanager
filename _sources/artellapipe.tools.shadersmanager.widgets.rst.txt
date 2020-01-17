@@ -6,7 +6,9 @@ Submodules
 
 .. toctree::
 
+   artellapipe.tools.shadersmanager.widgets.assetsviewer
    artellapipe.tools.shadersmanager.widgets.shaderexporter
+   artellapipe.tools.shadersmanager.widgets.shaderslibrary
 
 Module contents
 ---------------

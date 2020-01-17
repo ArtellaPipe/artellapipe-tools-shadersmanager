@@ -1,0 +1,7 @@
+artellapipe.tools.shadersmanager.widgets.shaderslibrary module
+==============================================================
+
+.. automodule:: artellapipe.tools.shadersmanager.widgets.shaderslibrary
+   :members:
+   :undoc-members:
+   :show-inheritance:
