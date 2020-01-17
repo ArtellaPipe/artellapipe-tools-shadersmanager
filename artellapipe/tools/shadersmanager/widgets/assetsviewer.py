@@ -365,4 +365,3 @@ class AssetShadersStack(base.BaseWidget, object):
 
     def _on_shaders_export_canceled(self):
         self.refresh()
-
