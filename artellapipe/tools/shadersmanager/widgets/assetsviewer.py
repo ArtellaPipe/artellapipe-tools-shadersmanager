@@ -18,13 +18,13 @@ import logging
 from Qt.QtCore import *
 from Qt.QtWidgets import *
 
-from tpPyUtils import osplatform
-from tpQtLib.core import base, qtutils
-from tpQtLib.widgets import stack, breadcrumb
+import tpDcc
+from tpDcc.libs.python import osplatform
+from tpDcc.libs.qt.core import base, qtutils
+from tpDcc.libs.qt.widgets import stack, breadcrumb
 
 import artellapipe
-from artellapipe.utils import resource
-
+from artellapipe.widgets import assetswidget
 from artellapipe.tools.shadersmanager.widgets import shaderexporter
 
 LOGGER = logging.getLogger()
@@ -44,7 +44,7 @@ class ArtellaAssetShadersViewer(base.BaseWidget, object):
         shader_splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.main_layout.addWidget(shader_splitter)
 
-        self._assets_viewer = artellapipe.AssetsViewer(
+        self._assets_viewer = assetswidget.AssetsWidget(
             project=self._project,
             column_count=2,
             parent=self
@@ -61,7 +61,7 @@ class ArtellaAssetShadersViewer(base.BaseWidget, object):
         no_items_layout.setSpacing(0)
         no_items_widget.setLayout(no_items_layout)
         no_items_lbl = QLabel()
-        no_items_pixmap = resource.ResourceManager().pixmap('no_asset_selected')
+        no_items_pixmap = tpDcc.ResourcesMgr().pixmap('no_asset_selected')
         no_items_lbl.setPixmap(no_items_pixmap)
         no_items_lbl.setAlignment(Qt.AlignCenter)
         no_items_layout.addItem(QSpacerItem(0, 10, QSizePolicy.Preferred, QSizePolicy.Expanding))
@@ -192,7 +192,7 @@ class AssetsShadersWidget(base.BaseWidget, object):
         self._asset_icon_frame.setLayout(asset_icon_layout)
         self._asset_icon_lbl = QLabel()
         self._asset_icon_lbl.setAlignment(Qt.AlignCenter)
-        self._asset_icon_lbl.setPixmap(resource.ResourceManager().pixmap('default'))
+        self._asset_icon_lbl.setPixmap(tpDcc.ResourcesMgr().pixmap('default'))
         self._asset_toolbar_layout = QVBoxLayout()
         self._asset_toolbar_layout.setContentsMargins(2, 2, 2, 2)
         self._asset_toolbar_layout.setSpacing(5)
@@ -238,12 +238,12 @@ class AssetsShadersWidget(base.BaseWidget, object):
 
         artella_btn = QToolButton()
         artella_btn.setText('Artella')
-        artella_btn.setIcon(resource.ResourceManager().icon('artella'))
+        artella_btn.setIcon(tpDcc.ResourcesMgr().icon('artella'))
         artella_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
 
         view_locally_btn = QToolButton()
         view_locally_btn.setText('Folder')
-        view_locally_btn.setIcon(resource.ResourceManager().icon('folder'))
+        view_locally_btn.setIcon(tpDcc.ResourcesMgr().icon('folder'))
         view_locally_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
 
         toolbar_layout.addItem(QSpacerItem(10, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
@@ -287,8 +287,8 @@ class AssetShadersStack(base.BaseWidget, object):
     def ui(self):
         super(AssetShadersStack, self).ui()
 
-        export_icon = resource.ResourceManager().icon('export')
-        open_folder_icon = resource.ResourceManager().icon('folder')
+        export_icon = tpDcc.ResourcesMgr().icon('export')
+        open_folder_icon = tpDcc.ResourcesMgr().icon('folder')
 
         self._export_btn = QPushButton('Shaders Exporter')
         self._export_btn.setIcon(export_icon)
@@ -318,7 +318,7 @@ class AssetShadersStack(base.BaseWidget, object):
         no_shaders_layout.setSpacing(0)
         no_shaders_widget.setLayout(no_shaders_layout)
         no_shaders_lbl = QLabel()
-        no_shaders_pixmap = resource.ResourceManager().pixmap('no_shaders_available')
+        no_shaders_pixmap = tpDcc.ResourcesMgr().pixmap('no_shaders_available')
         no_shaders_lbl.setPixmap(no_shaders_pixmap)
         no_shaders_lbl.setAlignment(Qt.AlignCenter)
         no_shaders_layout.addItem(QSpacerItem(0, 10, QSizePolicy.Preferred, QSizePolicy.Expanding))

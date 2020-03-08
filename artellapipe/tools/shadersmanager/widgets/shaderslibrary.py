@@ -15,9 +15,9 @@ __email__ = "tpovedatd@gmail.com"
 from Qt.QtCore import *
 from Qt.QtWidgets import *
 
-import tpDccLib as tp
-from tpPyUtils import osplatform
-from tpQtLib.core import base
+import tpDcc as tp
+from tpDcc.libs.python import osplatform
+from tpDcc.libs.qt.core import base
 
 import artellapipe
 

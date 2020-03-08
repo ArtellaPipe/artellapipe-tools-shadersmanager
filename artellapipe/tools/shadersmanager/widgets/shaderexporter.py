@@ -12,6 +12,7 @@ __license__ = "MIT"
 __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
+import os
 import traceback
 import logging
 from functools import partial
@@ -19,16 +20,15 @@ from functools import partial
 from Qt.QtCore import *
 from Qt.QtWidgets import *
 
-import tpQtLib
-import tpDccLib as tp
-from tpQtLib.core import base
+import tpDcc as tp
+from tpDcc.libs.qt.core import base
 
 import artellapipe
 from artellapipe.core import defines
-from artellapipe.utils import exceptions, resource, shader as shader_utils
+from artellapipe.utils import exceptions, shader as shader_utils
 
 if tp.is_maya():
-    from tpMayaLib.core import shader as maya_shader
+    from tpDcc.dccs.maya.core import shader as maya_shader
 
 LOGGER = logging.getLogger()
 
@@ -99,17 +99,17 @@ class ArtellaShaderExporterWidget(base.BaseWidget, object):
         do_export_layout.addWidget(self.do_export)
         self.main_layout.addLayout(do_export_layout)
 
-    def export(self, new_version=False, publish=False, comment=None):
+    def export(self, new_version=False, comment=None):
 
         exported_shader = None
         if self.do_export.isChecked():
             if self._asset:
                 exported_shader = artellapipe.ShadersMgr().export_asset_shaders(
-                    asset=self._asset, publish=publish, shader_swatch=self._shader_swatch,
+                    asset=self._asset, shader_swatch=self._shader_swatch,
                     new_version=new_version, comment=comment, shaders_to_export=[self._name])
             else:
                 exported_shader = artellapipe.ShadersMgr().export_shader(
-                    shader_name=self._name, shader_swatch=self._shader_swatch, publish=publish,
+                    shader_name=self._name, shader_swatch=self._shader_swatch,
                     new_version=new_version, comment=comment)
 
         return exported_shader
@@ -119,7 +119,7 @@ class ArtellaShaderExporterWidget(base.BaseWidget, object):
         return self._name
 
 
-class ShadersDialog(tpQtLib.Dialog, object):
+class ShadersDialog(tp.Dialog, object):
     def __init__(self, project, shaders, parent=None):
         self._project = project
         self._shaders = shaders
@@ -158,10 +158,10 @@ class ShaderExporter(base.BaseWidget, object):
         self._shaders_list.setStyleSheet('background-color: rgba(50, 50, 50, 150);')
         shaders_layout.addWidget(self._shaders_list)
 
-        refresh_icon = resource.ResourceManager().icon('refresh')
-        export_icon = resource.ResourceManager().icon('export')
-        publish_icon = resource.ResourceManager().icon('box')
-        cancel_icon = resource.ResourceManager().icon('delete')
+        refresh_icon = tp.ResourcesMgr().icon('refresh')
+        export_icon = tp.ResourcesMgr().icon('export')
+        publish_icon = tp.ResourcesMgr().icon('box')
+        cancel_icon = tp.ResourcesMgr().icon('delete')
 
         self.export_shader_mapper_cbx = QCheckBox('Export Shaders Mapping File?')
         self.export_shader_mapper_cbx.setChecked(True)
@@ -208,8 +208,8 @@ class ShaderExporter(base.BaseWidget, object):
         progress_layout.addWidget(self._progress_text)
 
     def setup_signals(self):
-        self.export_btn.clicked.connect(partial(self._on_export_shaders, False))
-        self.publish_btn.clicked.connect(partial(self._on_export_shaders, True))
+        self.export_btn.clicked.connect(partial(self._on_export_shaders))
+        self.publish_btn.clicked.connect(partial(self._on_publish_shaders))
         self.cancel_btn.clicked.connect(self.exportCanceled.emit)
         self.refresh_btn.clicked.connect(self.refresh)
 
@@ -240,7 +240,7 @@ class ShaderExporter(base.BaseWidget, object):
             self._shaders_list.addItem(shader_item)
             self._shaders_list.setItemWidget(shader_item, shader_widget)
 
-    def export_shaders(self, new_version=False, publish=False, comment=None):
+    def export_shaders(self, new_version=False, comment=None):
 
         exported_shaders = list()
 
@@ -254,7 +254,7 @@ class ShaderExporter(base.BaseWidget, object):
                 shader = self._shaders_list.itemWidget(shader_item)
                 self._progress_text.setText('Exporting shader: {0} ... Please wait!'.format(shader.name))
                 self.repaint()
-                exported_shader = shader.export(new_version=new_version, publish=publish, comment=comment)
+                exported_shader = shader.export(new_version=new_version, comment=comment)
                 if exported_shader is not None:
                     if type(exported_shader) == list:
                         exported_shaders.extend(exported_shader)
@@ -272,9 +272,27 @@ class ShaderExporter(base.BaseWidget, object):
             self._progress_text.setText('Exporting Shaders Mapping File ... Please wait!')
             self.repaint()
             artellapipe.ShadersMgr().export_asset_shaders_mapping(
-                self._asset, publish=publish, comment=comment, new_version=new_version)
+                self._asset, comment=comment, new_version=new_version)
 
         return exported_shaders
+
+    def publish_shaders(self, comment=None):
+        publish_path = self._asset.get_shaders_path(status=defines.ArtellaFileStatus.PUBLISHED, next_version=True)
+        if not publish_path:
+            LOGGER.warning(
+                'Impossible to publish shaders. Was not possible to found publish path. Publish shaders manually.')
+            return
+
+        if os.path.isdir(publish_path):
+            LOGGER.warning('New Publish Path already exits: "{}". Publish shader manually.'.format(publish_path))
+            return
+
+        if not comment:
+            comment = 'Shaders Exporter >>> Shaders Published: {}'.format(publish_path)
+
+        # artellalib.publish_asset(publish_path, comment=comment)
+
+        return True
 
     def _open_asset_shaders_file(self):
         if not self._asset:
@@ -299,15 +317,40 @@ class ShaderExporter(base.BaseWidget, object):
         self._comment_line.setVisible(flag)
         self._progress_text.setVisible(not flag)
 
-    def _on_export_shaders(self, publish=False):
+    def _on_export_shaders(self):
 
         self._set_widgets_visibility(False)
         self.repaint()
         try:
             self.export_shaders(
-                publish=publish, new_version=self.upload_new_version_cbx.isChecked(),
+                new_version=self.upload_new_version_cbx.isChecked(),
                 comment=self._comment_line.text())
             self.exportFinished.emit()
             LOGGER.info('Shaders exported successfully!')
         finally:
             self._set_widgets_visibility(True)
+
+    def _on_publish_shaders(self):
+
+        raise NotImplementedError('Publish Shaders functionality not implemented!')
+
+        # res = qtutils.show_question(
+        #     None, 'Publishing Shaders',
+        #     'Are you sure you want to publish asset shaders?\n\nShaders and Mapping files will be re-exported.')
+        # if res == QMessageBox.No:
+        #     return
+        #
+        # self._set_widgets_visibility(False)
+        # self.repaint()
+        # try:
+        #     self.export_shaders(
+        #         new_version=True,
+        #         comment=self._comment_line.text())
+        #     LOGGER.info('Shaders exported successfully!')
+        #     artellapipe.ShadersMgr().export_asset_shaders_mapping(
+        #         self._asset, comment=self._comment_line.text(), new_version=True)
+        #     LOGGER.info('Shaders Mapping exported successfully!')
+        #     self.publish_shaders(comment=self._comment_line.text())
+        #     LOGGER.info('New shaders version published successfully!')
+        # finally:
+        #     self._set_widgets_visibility(True)
